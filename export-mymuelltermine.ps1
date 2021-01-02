@@ -1,7 +1,11 @@
+#inspired by 
+# - https://github.com/ioBroker/AdapterRequests/issues/246
+# - https://alexa.mymuell.de/assets/js/app.js
+
 #enter city name
 $city = "Langenfeld"
 #enter street name
-$street = "Hauptstraﬂe"
+$street = "Oststraﬂe"
 
 function export-ical {
     param (
@@ -55,28 +59,36 @@ END:VEVENT
     $ics | Out-File -FilePath $filepath
 }
 
+$today = (get-date).tostring("yyyyMMdd")
+
 $citiesurl = "https://mymuell.jumomind.com/mmapp/alexa/app_api.php?r=cities"
 $cities = (Invoke-WebRequest -Uri $citiesurl).content | ConvertFrom-Json
 $city = $cities | Where-Object name -eq $city
 
-$streetsurl = "https://mymuell.jumomind.com/mmapp/alexa/app_api.php?r=streets&city_id=" + $($city.id) + "&dbIdentifier=" + $($city.dbIdentifier)
-$streets = (Invoke-WebRequest -Uri $streetsurl).content | ConvertFrom-Json
-$street = $streets | Where-Object name -eq $street
-
-$namesurl = "https://mymuell.jumomind.com/mmapp/api.php?r=trash&city_id=" + $($city.id) + "&area_id=" + $($street.area_id) + "&ws=3"
+$namesurl = "https://mymuell.jumomind.com/mmapp/api.php?r=trash&city_id=" + $($city.id)
 $names = (Invoke-WebRequest -Uri $namesurl).content | ConvertFrom-Json
 
-$termineurl = "https://mymuell.jumomind.com/webservice.php?idx=termins&city_id=" + $($city.id) + "&area_id=" + $($street.area_id)
-$termine = (Invoke-WebRequest -Uri $termineurl).content | ConvertFrom-Json 
+$streetsurl = "https://mymuell.jumomind.com/mmapp/alexa/app_api.php?r=streets&city_id=" + $($city.id) + "&dbIdentifier=" + $($city.dbIdentifier)
+$streetsurl
+$streetsreq = (Invoke-WebRequest -Uri $streetsurl).content | ConvertFrom-Json
+$streets = $streetsreq | Where-Object name -eq $street 
+#comment out for all streets
+#$streets = $streetsreq
 
-$list = @()
-foreach($termin in $termine._data)
+foreach ($street in $streets)
 {
-    $listentry = [PSCustomObject]@{
-        date = [datetime]::ParseExact($termin.cal_date_normal,'dd.MM.yyyy',$null)
-        garbage_type = ($names | Where-Object { $_.name -eq $($termin.cal_garbage_type)}).title
-    }
-    $list += $listentry
-}
+    $streetclean = $street.name.Replace("/","_")
+    $termineurl = "https://mymuell.jumomind.com/webservice.php?idx=termins&city_id=" + $($city.id) + "&area_id=" + $($street.area_id)
+    $termine = (Invoke-WebRequest -Uri $termineurl).content | ConvertFrom-Json 
 
-export-ical -dates $list -filepath "muelltermine-$($city.id)-$($street.area_id).ics"
+    $list = @()
+    foreach($termin in $termine._data)
+    {
+        $listentry = [PSCustomObject]@{
+            date = [datetime]::ParseExact($termin.cal_date_normal,'dd.MM.yyyy',$null)
+            garbage_type = ($names | Where-Object { $_.name -eq $($termin.cal_garbage_type)}).title
+        }
+        $list += $listentry
+    }
+    export-ical -dates $list -filepath "muelltermine-$($city.name)-$streetclean-$today.ics"
+}
