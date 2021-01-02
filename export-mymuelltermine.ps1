@@ -5,7 +5,7 @@
 #enter city name
 $city = "Langenfeld"
 #enter street name
-$street = "Oststraﬂe"
+$street = "Weststraﬂe"
 
 function export-ical {
     param (
@@ -56,7 +56,7 @@ END:VEVENT
 
     $end = "END:VCALENDAR"
     $ics = $begin + $proclist + $end
-    $ics | Out-File -FilePath $filepath
+    $ics | Out-File -FilePath $filepath -encoding UTF8
 }
 
 $today = (get-date).tostring("yyyyMMdd")
@@ -69,7 +69,6 @@ $namesurl = "https://mymuell.jumomind.com/mmapp/api.php?r=trash&city_id=" + $($c
 $names = (Invoke-WebRequest -Uri $namesurl).content | ConvertFrom-Json
 
 $streetsurl = "https://mymuell.jumomind.com/mmapp/alexa/app_api.php?r=streets&city_id=" + $($city.id) + "&dbIdentifier=" + $($city.dbIdentifier)
-$streetsurl
 $streetsreq = (Invoke-WebRequest -Uri $streetsurl).content | ConvertFrom-Json
 $streets = $streetsreq | Where-Object name -eq $street 
 #comment out for all streets
